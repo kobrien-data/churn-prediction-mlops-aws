@@ -2,7 +2,7 @@ module "s3_raw_data" {
   source  = "terraform-aws-modules/s3-bucket/aws"
   version = "~> 4.0"
 
-  bucket = "customer-churn-raw-data"
+  bucket = "customer-churn-raw-data-941377133770"
   force_destroy = true
 
   control_object_ownership = true
