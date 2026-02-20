@@ -1,29 +1,4 @@
 # -----------------------------------------------------
-# Data Sources
-# These look up existing resources in your AWS account
-# rather than creating new ones
-# -----------------------------------------------------
-
-# Looks up the default VPC in your AWS account
-# SageMaker Studio needs to run inside a VPC for network
-# isolation. Using the default VPC keeps things simple
-# for a portfolio project — in production you'd create
-# a dedicated VPC with private subnets
-data "aws_vpc" "default" {
-  default = true
-}
-
-# Looks up the subnets inside the default VPC
-# SageMaker needs at least one subnet to know which
-# part of the network to place Studio in
-data "aws_subnets" "default" {
-  filter {
-    name   = "vpc-id"
-    values = [data.aws_vpc.default.id]
-  }
-}
-
-# -----------------------------------------------------
 # SageMaker Domain
 # This is the top-level container for SageMaker Studio.
 # Think of it as the workspace — everything else
