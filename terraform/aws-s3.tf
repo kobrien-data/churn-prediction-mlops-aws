@@ -17,7 +17,7 @@ module "s3_processed_data" {
   source  = "terraform-aws-modules/s3-bucket/aws"
   version = "~> 4.0"
 
-  bucket = "customer-churn-processed-data"
+  bucket = "customer-churn-processed-data-941377133770"
   force_destroy = true
 
   control_object_ownership = true
@@ -32,7 +32,7 @@ module "s3_model_artifacts" {
   source  = "terraform-aws-modules/s3-bucket/aws"
   version = "~> 4.0"
 
-  bucket = "customer-churn-model-artifacts"
+  bucket = "customer-churn-model-artifacts-941377133770"
   force_destroy = true
 
   control_object_ownership = true
