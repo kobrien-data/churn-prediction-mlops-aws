@@ -4,12 +4,12 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 5.0"
+      version = "~> 6.0"
     }
   }
 
   backend "s3" {
-    bucket = "customer-churn-terraform-state-${data.aws_caller_identity.current.account_id}"
+    bucket = "customer-churn-terraform-state-941377133770"
     key    = "churn-project/terraform.tfstate"
     region = "eu-north-1"
   }
