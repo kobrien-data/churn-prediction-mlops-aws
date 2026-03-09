@@ -78,7 +78,7 @@ def evaluate_model(model, X_test: pd.DataFrame, y_test: pd.Series) -> dict:
     
     return {
         "classification_report": class_report,
-        "confusion_matrix": confusion_matrix,
+        "confusion_matrix": conf_matrix,
         "roc_auc_score": auc_score
     }
 
