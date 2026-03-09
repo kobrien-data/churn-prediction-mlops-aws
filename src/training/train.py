@@ -1,5 +1,4 @@
 import pandas as pd
-from sklearn import metrics
 from sklearn.model_selection import GridSearchCV, train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.ensemble import GradientBoostingClassifier
@@ -83,7 +82,7 @@ def evaluate_model(model, X_test: pd.DataFrame, y_test: pd.Series) -> dict:
         "roc_auc_score": auc_score
     }
 
-def log_to_mlflow(model, model_name: str) -> None:
+def log_to_mlflow(model, model_name: str, metrics: dict) -> None:
     """Log the model to MLflow."""
     import mlflow
     mlflow.set_tracking_uri("http://localhost:5000")  # Update with EC2 MLflow server URI later
@@ -92,6 +91,7 @@ def log_to_mlflow(model, model_name: str) -> None:
     with mlflow.start_run(run_name=model_name):
         mlflow.sklearn.log_model(model, artifact_path=model_name)
         mlflow.log_param("model_type", model_name)
+        mlflow.log_params(model.get_params())
         mlflow.log_metric("roc_auc_score", metrics["roc_auc_score"])
 
 def run_experiment(X_train: pd.DataFrame, y_train: pd.Series, X_test: pd.DataFrame, y_test: pd.Series) -> None:
