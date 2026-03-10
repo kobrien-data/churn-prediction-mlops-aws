@@ -36,7 +36,7 @@ def train_model_random_forest(X_train: pd.DataFrame, y_train: pd.Series) -> Rand
     """
 
     model = RandomForestClassifier(random_state=42, n_estimators=100)
-
+ 
     param_grid = {
         'n_estimators': [50, 100, 200],
         'max_depth': [None, 10, 20],
@@ -89,7 +89,7 @@ def log_to_mlflow(model, model_name: str, metrics: dict) -> None:
     mlflow.set_experiment("Churn Prediction Models")
     
     with mlflow.start_run(run_name=model_name):
-        mlflow.sklearn.log_model(model, artifact_path=model_name)
+        mlflow.sklearn.log_model(model, artifact_path=model_name, registered_model_name=model_name)
         mlflow.log_param("model_type", model_name)
         mlflow.log_params(model.get_params())
         mlflow.log_metric("roc_auc_score", metrics["roc_auc_score"])
