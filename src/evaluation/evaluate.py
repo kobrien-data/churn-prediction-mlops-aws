@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np 
 import mlflow
+from mlflow.tracking import MlflowClient
 import argparse
 
 def load_model(file_path: str):
@@ -111,12 +112,15 @@ def generate_evaluation_report(metrics_dict, model_name, output_path):
         
         f.write(f"ROC AUC Score: {metrics_dict['roc_auc_score']:.4f}\n")
 
-def log_evaluation_results_to_mlflow(metrics, plots):
-    """Log evaluation results to MLFlow."""
+def log_evaluation_results_to_mlflow(metrics, plots, model_name: str):
+    """Log evaluation results to MLFlow and tag the model as staging."""
+    client = MlflowClient()
     with mlflow.start_run():
         mlflow.log_metrics({'roc_auc_score': metrics['roc_auc_score']})
         for plot in plots:
             mlflow.log_artifact(plot)
+    latest_version = client.get_latest_versions(model_name)[0].version
+    client.set_registered_model_alias(model_name, "staging", latest_version)
 
 def compare_models(model_paths, X_test, y_test, output_path):
     """Compare multiple models based on their evaluation metrics."""
@@ -157,4 +161,4 @@ if __name__ == "__main__":
     ]
     if hasattr(model, 'feature_importances_'):
         plots.append(f'{args.output_dir}BestModel_feature_importance.png')
-    log_evaluation_results_to_mlflow(metrics, plots)
+    log_evaluation_results_to_mlflow(metrics, plots, model_name='BestModel')
