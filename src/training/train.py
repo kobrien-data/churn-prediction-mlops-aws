@@ -1,10 +1,12 @@
+import os
+import argparse
+import joblib
 import pandas as pd
 from sklearn.model_selection import GridSearchCV, train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score
-import argparse
 
 def load_data(file_path: str) -> pd.DataFrame:
     """Load data from a CSV file."""
@@ -85,7 +87,8 @@ def evaluate_model(model, X_test: pd.DataFrame, y_test: pd.Series) -> dict:
 def log_to_mlflow(model, model_name: str, metrics: dict) -> None:
     """Log the model to MLflow."""
     import mlflow
-    mlflow.set_tracking_uri("http://localhost:5000")  # Update with EC2 MLflow server URI later
+    tracking_uri = os.environ.get("MLFLOW_TRACKING_URI", "http://localhost:5000")
+    mlflow.set_tracking_uri(tracking_uri)
     mlflow.set_experiment("Churn Prediction Models")
     
     with mlflow.start_run(run_name=model_name):
@@ -94,35 +97,43 @@ def log_to_mlflow(model, model_name: str, metrics: dict) -> None:
         mlflow.log_params(model.get_params())
         mlflow.log_metric("roc_auc_score", metrics["roc_auc_score"])
 
-def run_experiment(X_train: pd.DataFrame, y_train: pd.Series, X_test: pd.DataFrame, y_test: pd.Series) -> None:
+def run_experiment(X_train: pd.DataFrame, y_train: pd.Series, X_test: pd.DataFrame, y_test: pd.Series, model_dir: str) -> None:
     """Run the experiment by training and evaluating multiple models."""
 
     lr_model = train_model_logistic_regression(X_train, y_train)
     rf_model = train_model_random_forest(X_train, y_train)
     gb_model = train_model_gradient_boosting(X_train, y_train)
-    
+
     print("Logistic Regression Performance:")
     lr_metrics = evaluate_model(lr_model, X_test, y_test)
-    
+
     print("\nRandom Forest Performance:")
     rf_metrics = evaluate_model(rf_model, X_test, y_test)
-    
+
     print("\nGradient Boosting Performance:")
     gb_metrics = evaluate_model(gb_model, X_test, y_test)
-    
+
     log_to_mlflow(rf_model, "RandomForestClassifier", rf_metrics)
     log_to_mlflow(gb_model, "GradientBoostingClassifier", gb_metrics)
     log_to_mlflow(lr_model, "LogisticRegression", lr_metrics)
 
+    best_model = max(
+        [(rf_model, rf_metrics), (gb_model, gb_metrics), (lr_model, lr_metrics)],
+        key=lambda x: x[1]["roc_auc_score"]
+    )[0]
+    joblib.dump(best_model, os.path.join(model_dir, "model.joblib"))
+
 if __name__ == '__main__':
-    
+
     parser = argparse.ArgumentParser()
-    parser.add_argument('--data-dir', type=str, default='preprocessed_data')
+    parser.add_argument('--model-dir', type=str, default=os.environ.get('SM_MODEL_DIR', 'model'))
+    parser.add_argument('--train', type=str, default=os.environ.get('SM_CHANNEL_TRAIN', 'preprocessed_data'))
     args = parser.parse_args()
-    X_train = pd.read_csv(f"{args.data_dir}/X_train.csv")
-    y_train = pd.read_csv(f"{args.data_dir}/y_train.csv").squeeze()  # Convert to Series
-    X_test = pd.read_csv(f"{args.data_dir}/X_test.csv")
-    y_test = pd.read_csv(f"{args.data_dir}/y_test.csv").squeeze()  # Convert to Series
-    
-    
-    run_experiment(X_train, y_train, X_test, y_test)
+
+    X_train = pd.read_csv(os.path.join(args.train, 'X_train.csv'))
+    y_train = pd.read_csv(os.path.join(args.train, 'y_train.csv')).squeeze()
+    X_test = pd.read_csv(os.path.join(args.train, 'X_test.csv'))
+    y_test = pd.read_csv(os.path.join(args.train, 'y_test.csv')).squeeze()
+
+    os.makedirs(args.model_dir, exist_ok=True)
+    run_experiment(X_train, y_train, X_test, y_test, args.model_dir)
