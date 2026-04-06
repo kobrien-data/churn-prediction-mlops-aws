@@ -84,7 +84,7 @@ resource "aws_instance" "mlflow_instance" {
   iam_instance_profile   = aws_iam_instance_profile.mlflow.name
 
   root_block_device {
-    volume_size = 20
+    volume_size = 40
     volume_type = "gp3"
   }
 

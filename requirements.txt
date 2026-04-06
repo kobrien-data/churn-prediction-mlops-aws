@@ -8,3 +8,4 @@ seaborn==0.13.2
 mlflow==3.10.1
 boto3==1.42.65
 sagemaker
+s3fs

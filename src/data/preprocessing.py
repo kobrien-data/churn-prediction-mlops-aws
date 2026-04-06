@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
@@ -19,10 +20,10 @@ def encode_categorical_variables(df: pd.DataFrame, categorical_columns: list[str
 
 def scale_numerics(df: pd.DataFrame) -> tuple[pd.DataFrame, StandardScaler]:
     numeric_cols = df.select_dtypes(include=['int64', 'float64']).columns.tolist()
-    
+
     if 'Exited' in numeric_cols:
         numeric_cols.remove('Exited')
-    
+
     scaler = StandardScaler()
     df[numeric_cols] = scaler.fit_transform(df[numeric_cols])
     return df, scaler
@@ -39,31 +40,27 @@ def apply_smote(X_train: pd.DataFrame, y_train: pd.Series) -> tuple[pd.DataFrame
     X_resampled, y_resampled = smote.fit_resample(X_train, y_train)
     return X_resampled, y_resampled
 
-def save_preprocessed_data(X_train: pd.DataFrame, y_train: pd.Series, X_test: pd.DataFrame, y_test: pd.Series, output_dir: str):
-    """Save the preprocessed data to CSV files."""
-    X_train.to_csv(f"{output_dir}/X_train.csv", index=False)
-    y_train.to_csv(f"{output_dir}/y_train.csv", index=False)
-    X_test.to_csv(f"{output_dir}/X_test.csv", index=False)
-    y_test.to_csv(f"{output_dir}/y_test.csv", index=False)
+def save_preprocessed_data(X_train: pd.DataFrame, y_train: pd.Series, X_test: pd.DataFrame, y_test: pd.Series):
+    """Save the preprocessed data to S3."""
+    bucket = os.environ.get('S3_PROCESSED_DATA_BUCKET')
+    base = f"s3://{bucket}"
+    X_train.to_csv(f"{base}/train/X_train.csv", index=False)
+    y_train.to_csv(f"{base}/train/y_train.csv", index=False)
+    X_test.to_csv(f"{base}/test/X_test.csv", index=False)
+    y_test.to_csv(f"{base}/test/y_test.csv", index=False)
 
-def main(input_path: str, output_path: str) -> None:
-    numeric_cols = ['CreditScore', 'Age', 'Tenure', 'Balance', 
-                   'EstimatedSalary', 'Point Earned']
-    
+def main(input_path: str) -> None:
     df = load_data(input_path)
     df = drop_unnecessary_columns(df, columns_to_drop=['RowNumber', 'CustomerId', 'Surname', 'Complain'])
     df = encode_categorical_variables(df, categorical_columns=['Geography', 'Gender', 'Card Type'])
-    print(df.columns.tolist())
-    print(df.dtypes)
-    df = scale_numerics(df)
+    df, _ = scale_numerics(df)
     X_train, X_test, y_train, y_test = split_data(df, target_column='Exited')
     X_train, y_train = apply_smote(X_train, y_train)
-    save_preprocessed_data(X_train, y_train, X_test, y_test, output_path)
-    print("✓ Preprocessing complete")
+    save_preprocessed_data(X_train, y_train, X_test, y_test)
+    print("Preprocessing complete")
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--input-path', type=str)
-    parser.add_argument('--output-path', type=str)
     args = parser.parse_args()
-    main(args.input_path, args.output_path)
+    main(args.input_path)
