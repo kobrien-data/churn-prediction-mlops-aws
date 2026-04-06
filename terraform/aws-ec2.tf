@@ -108,3 +108,18 @@ EOF
     Name = "customer-churn-mlops"
   }
 }
+
+resource "aws_eip" "mlflow" {
+  instance = aws_instance.mlflow_instance.id
+  domain   = "vpc"
+
+  tags = {
+    Project   = "customer-churn-mlops"
+    ManagedBy = "terraform"
+  }
+}
+
+output "mlflow_public_ip" {
+  description = "Static public IP for the MLflow EC2 instance"
+  value       = aws_eip.mlflow.public_ip
+}
