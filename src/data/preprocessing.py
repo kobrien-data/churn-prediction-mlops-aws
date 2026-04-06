@@ -51,7 +51,7 @@ def main(input_path: str, output_path: str) -> None:
                    'EstimatedSalary', 'Point Earned']
     
     df = load_data(input_path)
-    df = drop_unnecessary_columns(df, columns_to_drop=['RowNumber', 'CustomerId', 'Surname'])
+    df = drop_unnecessary_columns(df, columns_to_drop=['RowNumber', 'CustomerId', 'Surname', 'Complain'])
     df = encode_categorical_variables(df, categorical_columns=['Geography', 'Gender', 'Card Type'])
     print(df.columns.tolist())
     print(df.dtypes)
