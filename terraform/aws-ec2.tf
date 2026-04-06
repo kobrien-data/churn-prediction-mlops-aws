@@ -84,7 +84,7 @@ resource "aws_instance" "mlflow_instance" {
   iam_instance_profile   = aws_iam_instance_profile.mlflow.name
 
   root_block_device {
-    volume_size = 20
+    volume_size = 40
     volume_type = "gp3"
   }
 
@@ -107,4 +107,19 @@ EOF
   tags = {
     Name = "customer-churn-mlops"
   }
+}
+
+resource "aws_eip" "mlflow" {
+  instance = aws_instance.mlflow_instance.id
+  domain   = "vpc"
+
+  tags = {
+    Project   = "customer-churn-mlops"
+    ManagedBy = "terraform"
+  }
+}
+
+output "mlflow_public_ip" {
+  description = "Static public IP for the MLflow EC2 instance"
+  value       = aws_eip.mlflow.public_ip
 }
