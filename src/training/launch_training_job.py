@@ -1,5 +1,6 @@
 import os
 import boto3
+from datetime import datetime
 
 client = boto3.client('sagemaker', region_name='eu-north-1')
 
@@ -8,7 +9,7 @@ training_image_uri = os.environ.get('TRAINING_IMAGE_URI')
 mlflow_tracking_uri = os.environ.get('MLFLOW_TRACKING_URI')
 
 response = client.create_training_job(
-    TrainingJobName='customer-churn-2026-04-1854',
+    TrainingJobName=f"customer-churn-{datetime.now().strftime('%Y-%m-%d-%H%M')}",
     RoleArn=role_arn,
     AlgorithmSpecification={
         'TrainingImage': training_image_uri,
