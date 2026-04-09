@@ -49,12 +49,12 @@ data "aws_iam_policy_document" "sagemaker_s3" {
     ]
 
     resources = [
-      "arn:aws:s3:::customer-churn-raw-data",
-      "arn:aws:s3:::customer-churn-raw-data/*",
-      "arn:aws:s3:::customer-churn-processed-data",
-      "arn:aws:s3:::customer-churn-processed-data/*",
-      "arn:aws:s3:::customer-churn-model-artifacts",
-      "arn:aws:s3:::customer-churn-model-artifacts/*",
+      "arn:aws:s3:::customer-churn-raw-data-941377133770",
+      "arn:aws:s3:::customer-churn-raw-data-941377133770/*",
+      "arn:aws:s3:::customer-churn-processed-data-941377133770",
+      "arn:aws:s3:::customer-churn-processed-data-941377133770/*",
+      "arn:aws:s3:::customer-churn-model-artifacts-941377133770",
+      "arn:aws:s3:::customer-churn-model-artifacts-941377133770/*",
     ]
   }
 }
