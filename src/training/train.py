@@ -98,7 +98,7 @@ def log_to_mlflow(model, model_name: str, metrics: dict) -> None:
         mlflow.log_metric("roc_auc_score", metrics["roc_auc_score"])
 
 def run_experiment(X_train: pd.DataFrame, y_train: pd.Series, X_test: pd.DataFrame,
-                    y_test: pd.Series, model_dir: str) -> None:
+                   y_test: pd.Series, model_dir: str) -> None:
     """Run the experiment by training and evaluating multiple models."""
 
     lr_model = train_model_logistic_regression(X_train, y_train)
