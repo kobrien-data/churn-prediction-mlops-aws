@@ -127,8 +127,8 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--model-dir', type=str, default=os.environ.get('SM_MODEL_DIR', 'model'))
-    parser.add_argument('--train', type=str, default=os.environ.get('SM_CHANNEL_TRAIN', 'preprocessed_data'))
-    parser.add_argument('--test', type=str, default=os.environ.get('SM_CHANNEL_TEST', 'preprocessed_data'))
+    parser.add_argument('--train', type=str, default=os.environ.get('SM_CHANNEL_TRAIN', 'processed'))
+    parser.add_argument('--test', type=str, default=os.environ.get('SM_CHANNEL_TEST', 'processed'))
     args = parser.parse_args()
 
     X_train = pd.read_csv(os.path.join(args.train, 'X_train.csv'))
