@@ -14,6 +14,7 @@ response = client.create_training_job(
     AlgorithmSpecification={
         'TrainingImage': training_image_uri,
         'TrainingInputMode': 'File',
+        'ContainerEntrypoint': ['python', 'src/training/train.py'],
     },
     ResourceConfig={
         'InstanceType': 'ml.m5.xlarge',
