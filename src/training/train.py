@@ -126,9 +126,9 @@ def run_experiment(X_train: pd.DataFrame, y_train: pd.Series, X_test: pd.DataFra
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model-dir', type=str, default=os.environ.get('SM_MODEL_DIR', 'model'))
-    parser.add_argument('--train', type=str, default=os.environ.get('SM_CHANNEL_TRAIN', 'processed'))
-    parser.add_argument('--test', type=str, default=os.environ.get('SM_CHANNEL_TEST', 'processed'))
+    parser.add_argument('--model-dir', type=str, default=os.environ.get('SM_MODEL_DIR', '/opt/ml/model'))
+    parser.add_argument('--train', type=str, default=os.environ.get('SM_CHANNEL_TRAIN', '/opt/ml/input/data/train'))
+    parser.add_argument('--test', type=str, default=os.environ.get('SM_CHANNEL_TEST', '/opt/ml/input/data/test'))
     args = parser.parse_args()
 
     X_train = pd.read_csv(os.path.join(args.train, 'X_train.csv'))

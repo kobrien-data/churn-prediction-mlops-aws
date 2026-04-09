@@ -28,7 +28,7 @@ resource "aws_security_group" "mlflow" {
     from_port   = 5000
     to_port     = 5000
     protocol    = "tcp"
-    cidr_blocks = ["${var.local_ip_addr}/32"]
+    cidr_blocks = ["${var.local_ip_addr}/32", "0.0.0.0/0"]
   }
 
   # Allow SSH from your IP only
