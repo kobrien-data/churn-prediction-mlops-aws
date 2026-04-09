@@ -46,7 +46,7 @@ def train_model_random_forest(X_train: pd.DataFrame, y_train: pd.Series) -> Rand
     }
 
     grid_search = GridSearchCV(model, param_grid, cv=5, n_jobs=-1, scoring='roc_auc')
-    
+
     return grid_search.fit(X_train, y_train).best_estimator_
 
 def train_model_gradient_boosting(X_train: pd.DataFrame, y_train: pd.Series) -> GradientBoostingClassifier:
@@ -59,25 +59,25 @@ def train_model_gradient_boosting(X_train: pd.DataFrame, y_train: pd.Series) -> 
     }
 
     grid_search = GridSearchCV(model, param_grid, cv=5, n_jobs=-1, scoring='roc_auc')
-    
+
     return grid_search.fit(X_train, y_train).best_estimator_
 
 def evaluate_model(model, X_test: pd.DataFrame, y_test: pd.Series) -> dict:
     """Evaluate the model using classification report, confusion matrix, and ROC AUC score."""
     y_pred = model.predict(X_test)
     y_proba = model.predict_proba(X_test)[:, 1]
-    
+
     class_report = classification_report(y_test, y_pred)
     print("Classification Report:")
     print(class_report)
-    
+
     conf_matrix = confusion_matrix(y_test, y_pred)
     print("Confusion Matrix:")
     print(conf_matrix)
-    
+
     auc_score = roc_auc_score(y_test, y_proba)
     print(f"ROC AUC Score: {auc_score:.4f}")
-    
+
     return {
         "classification_report": class_report,
         "confusion_matrix": conf_matrix,
@@ -90,7 +90,7 @@ def log_to_mlflow(model, model_name: str, metrics: dict) -> None:
     tracking_uri = os.environ.get("MLFLOW_TRACKING_URI", "http://localhost:5000")
     mlflow.set_tracking_uri(tracking_uri)
     mlflow.set_experiment("Churn Prediction Models")
-    
+
     with mlflow.start_run(run_name=model_name):
         mlflow.sklearn.log_model(model, artifact_path=model_name, registered_model_name=model_name)
         mlflow.log_param("model_type", model_name)
