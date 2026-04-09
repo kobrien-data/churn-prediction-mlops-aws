@@ -7,7 +7,7 @@ Then open the printed URL in your browser to verify the run appears.
 import mlflow
 
 EXPERIMENT_NAME = "churn-prediction-smoke-test"
-TRACKING_URI = "http://16.170.249.60:5000"  # EC2 MLflow server
+TRACKING_URI = "http://13.63.227.116:5000"  # EC2 MLflow server
 
 
 def log_dummy_run():
