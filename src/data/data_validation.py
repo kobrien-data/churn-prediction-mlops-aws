@@ -219,5 +219,3 @@ def validate_churn_csv(
         allow_nulls=CHURN_ALLOW_NULLS,
     )
     return df
-
-
