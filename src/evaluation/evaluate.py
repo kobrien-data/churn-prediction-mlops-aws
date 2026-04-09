@@ -1,6 +1,7 @@
 import joblib
 import pandas as pd
-from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score, roc_curve, auc, precision_recall_curve, average_precision_score
+from sklearn.metrics import (classification_report, confusion_matrix, roc_auc_score, 
+                             roc_curve, auc, precision_recall_curve, average_precision_score)
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
