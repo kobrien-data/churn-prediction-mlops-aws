@@ -55,6 +55,8 @@ data "aws_iam_policy_document" "sagemaker_s3" {
       "arn:aws:s3:::customer-churn-processed-data-941377133770/*",
       "arn:aws:s3:::customer-churn-model-artifacts-941377133770",
       "arn:aws:s3:::customer-churn-model-artifacts-941377133770/*",
+      "arn:aws:s3:::sagemaker-eu-north-1-941377133770",
+      "arn:aws:s3:::sagemaker-eu-north-1-941377133770/*",
     ]
   }
 }
@@ -163,6 +165,40 @@ resource "aws_iam_role_policy_attachment" "sagemaker_cloudwatch" {
 
 data "aws_iam_policy_document" "sagemaker_pipelines" {
   statement {
+    sid    = "AllowPassRole"
+    effect = "Allow"
+
+    actions = ["iam:PassRole"]
+
+    resources = ["arn:aws:iam::941377133770:role/customer-churn-sagemaker-execution-role"]
+  }
+
+  statement {
+    sid    = "AllowSageMakerStudio"
+    effect = "Allow"
+
+    actions = [
+      "sagemaker:ListSpaces",
+      "sagemaker:ListApps",
+      "sagemaker:DescribeApp",
+      "sagemaker:DescribeDomain",
+      "sagemaker:ListDomains",
+      "sagemaker:DescribeUserProfile",
+      "sagemaker:AddTags",
+      "sagemaker:CreatePresignedDomainUrl",
+      "sagemaker:ListPipelines",
+      "sagemaker:ListPipelineExecutions",
+      "sagemaker:ListPipelineExecutionSteps",
+      "sagemaker:ListPipelineParametersForExecution",
+      "sagemaker:DescribePipelineExecution",
+      "sagemaker:DescribePipelineDefinitionForExecution",
+      "sagemaker:RetryPipelineExecution",
+    ]
+
+    resources = ["*"]
+  }
+
+  statement {
     sid    = "AllowSageMakerPipelines"
     effect = "Allow"
 
@@ -173,11 +209,11 @@ data "aws_iam_policy_document" "sagemaker_pipelines" {
       "sagemaker:StartPipelineExecution",
       "sagemaker:StopPipelineExecution",
       "sagemaker:DescribePipeline",
-      "sagemaker:DescribePipelineExecution",
-      "sagemaker:ListPipelineExecutionSteps",
       "sagemaker:CreateProcessingJob",
       "sagemaker:CreateTrainingJob",
       "sagemaker:CreateModel",
+      "sagemaker:CreateModelPackageGroup",
+      "sagemaker:DescribeModelPackageGroup",
       "sagemaker:CreateModelPackage",
       "sagemaker:DescribeTrainingJob",
       "sagemaker:DescribeProcessingJob",
@@ -193,8 +229,11 @@ data "aws_iam_policy_document" "sagemaker_pipelines" {
     resources = [
       "arn:aws:sagemaker:*:*:pipeline/customer-churn-*",
       "arn:aws:sagemaker:*:*:training-job/customer-churn-*",
+      "arn:aws:sagemaker:*:*:training-job/pipelines-*",
       "arn:aws:sagemaker:*:*:processing-job/customer-churn-*",
+      "arn:aws:sagemaker:*:*:processing-job/pipelines-*",
       "arn:aws:sagemaker:*:*:model/customer-churn-*",
+      "arn:aws:sagemaker:*:*:model-package-group/customer-churn-*",
       "arn:aws:sagemaker:*:*:model-package/customer-churn-*",
       "arn:aws:sagemaker:*:*:endpoint/customer-churn-*",
       "arn:aws:sagemaker:*:*:endpoint-config/customer-churn-*",
