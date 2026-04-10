@@ -10,7 +10,16 @@ resource "aws_ecr_repository" "training" {
 resource "aws_ecr_repository" "inference" {
   name = "customer-churn-inference"
   force_delete = true
-  
+
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+}
+
+resource "aws_ecr_repository" "lambda" {
+  name         = "customer-churn-lambda"
+  force_delete = true
 
   image_scanning_configuration {
     scan_on_push = true

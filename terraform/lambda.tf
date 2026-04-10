@@ -24,7 +24,6 @@ resource "aws_lambda_function" "predict" {
   environment {
     variables = {
       SAGEMAKER_ENDPOINT_NAME = var.sagemaker_endpoint_name
-      AWS_REGION              = var.aws_region
     }
   }
 
