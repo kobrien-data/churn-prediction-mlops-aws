@@ -1,3 +1,5 @@
+import json
+import os
 import joblib
 import pandas as pd
 from sklearn.metrics import (classification_report, confusion_matrix, roc_auc_score,
@@ -6,7 +8,6 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 import mlflow
-from mlflow.tracking import MlflowClient
 import argparse
 
 def load_model(file_path: str):
@@ -114,14 +115,11 @@ def generate_evaluation_report(metrics_dict, model_name, output_path):
         f.write(f"ROC AUC Score: {metrics_dict['roc_auc_score']:.4f}\n")
 
 def log_evaluation_results_to_mlflow(metrics, plots, model_name: str):
-    """Log evaluation results to MLFlow and tag the model as staging."""
-    client = MlflowClient()
-    with mlflow.start_run():
+    """Log evaluation results to MLFlow."""
+    with mlflow.start_run(run_name=model_name):
         mlflow.log_metrics({'roc_auc_score': metrics['roc_auc_score']})
         for plot in plots:
             mlflow.log_artifact(plot)
-    latest_version = client.get_latest_versions(model_name)[0].version
-    client.set_registered_model_alias(model_name, "staging", latest_version)
 
 def compare_models(model_paths, X_test, y_test, output_path):
     """Compare multiple models based on their evaluation metrics."""
@@ -141,10 +139,19 @@ def compare_models(model_paths, X_test, y_test, output_path):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model-path', type=str, default='src/data/models/best_model.pkl')
-    parser.add_argument('--data-dir', type=str, default='data/preprocessed_data/')
-    parser.add_argument('--output-dir', type=str, default='src/data/evaluation_results/')
+    parser.add_argument('--model-path', type=str, default='/opt/ml/processing/model/model.joblib')
+    parser.add_argument('--data-dir', type=str, default='/opt/ml/processing/test/')
+    parser.add_argument('--output-dir', type=str, default='/opt/ml/processing/output/metrics/')
     args = parser.parse_args()
+
+    os.makedirs(args.output_dir, exist_ok=True)
+
+    model_dir = os.path.dirname(args.model_path)
+    tarball = os.path.join(model_dir, 'model.tar.gz')
+    if os.path.exists(tarball):
+        import tarfile
+        with tarfile.open(tarball) as tar:
+            tar.extractall(model_dir)
 
     X_test, y_test = load_test_data(args.data_dir + 'X_test.csv', args.data_dir + 'y_test.csv')
     model = load_model(args.model_path)
@@ -154,6 +161,10 @@ if __name__ == "__main__":
     plot_precision_recall_curve(y_test, model.predict_proba(X_test)[:, 1], 'BestModel', args.output_dir)
     plot_feature_importance(model, feature_names=X_test.columns, model_name='BestModel', output_path=args.output_dir)
     generate_evaluation_report(metrics, 'BestModel', args.output_dir)
+
+    with open(os.path.join(args.output_dir, 'metrics.json'), 'w') as f:
+        json.dump({'roc_auc_score': metrics['roc_auc_score']}, f)
+
     plots = [
         f'{args.output_dir}BestModel_confusion_matrix.png',
         f'{args.output_dir}BestModel_roc_curve.png',
