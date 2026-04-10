@@ -1,18 +1,37 @@
 import os
+import re
 import boto3
+from datetime import datetime, timezone
 from sagemaker.workflow.pipeline_context import PipelineSession
 from sagemaker.workflow.pipeline import Pipeline
 from sagemaker.workflow.steps import ProcessingStep, TrainingStep, CacheConfig
 from sagemaker.workflow.condition_step import ConditionStep
 from sagemaker.workflow.conditions import ConditionGreaterThanOrEqualTo
 from sagemaker.workflow.model_step import ModelStep
+from sagemaker.workflow.parameters import ParameterString
 from sagemaker.workflow.properties import PropertyFile
-from sagemaker.workflow.functions import JsonGet
+from sagemaker.workflow.functions import JsonGet, Join
 from sagemaker.processing import ProcessingInput, ProcessingOutput, ScriptProcessor
 from sagemaker.estimator import Estimator
 from sagemaker.model import Model
 from sagemaker.model_metrics import ModelMetrics, MetricsSource
 from sagemaker.inputs import TrainingInput
+
+
+def _read_dvc_md5(dvc_file_path: str) -> str:
+    """Read the MD5 hash from a DVC file to use as dataset version."""
+    with open(dvc_file_path) as f:
+        content = f.read()
+    match = re.search(r'md5:\s*([a-f0-9]+)', content)
+    return match.group(1) if match else 'unknown'
+
+
+dataset_version = _read_dvc_md5('data/raw/Customer-Churn-Records.csv.dvc')
+
+training_date = ParameterString(
+    name='TrainingDate',
+    default_value=datetime.now(timezone.utc).strftime('%Y-%m-%d')
+)
 
 role = os.environ.get('SAGEMAKER_ROLE_ARN')
 region = 'eu-north-1'
@@ -166,7 +185,16 @@ register_step = ModelStep(
         transform_instances=['ml.m5.xlarge'],
         model_package_group_name='customer-churn-models',
         approval_status='Approved',
-        model_metrics=model_metrics
+        model_metrics=model_metrics,
+        customer_metadata_properties={
+            'training_date': training_date,
+            'dataset_version': dataset_version,
+            'roc_auc_score': Join(on='', values=[JsonGet(
+                step_name=evaluation_step.name,
+                property_file=evaluation_report,
+                json_path='roc_auc_score'
+            )])
+        }
     )
 )
 
@@ -180,6 +208,7 @@ condition_step = ConditionStep(
 # Pipeline definition
 pipeline = Pipeline(
     name='customer-churn-pipeline',
+    parameters=[training_date],
     steps=[processing_step, training_step, evaluation_step, condition_step],
     sagemaker_session=session
 )
