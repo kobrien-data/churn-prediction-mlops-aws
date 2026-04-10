@@ -1,6 +1,7 @@
 import os
 import argparse
 import joblib
+import shutil
 import pandas as pd
 from sklearn.model_selection import GridSearchCV, train_test_split
 from sklearn.ensemble import RandomForestClassifier
@@ -123,6 +124,8 @@ def run_experiment(X_train: pd.DataFrame, y_train: pd.Series, X_test: pd.DataFra
         key=lambda x: x[1]["roc_auc_score"]
     )[0]
     joblib.dump(best_model, os.path.join(model_dir, "model.joblib"))
+    shutil.copy('src/inference/inference.py', os.path.join(model_dir, 'inference.py'))
+
 
 if __name__ == '__main__':
 
