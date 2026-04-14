@@ -1,5 +1,4 @@
 import os
-import json
 from flask import Flask, request, Response
 from inference import model_fn, input_fn, predict_fn, output_fn
 
