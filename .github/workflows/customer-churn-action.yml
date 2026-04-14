@@ -16,6 +16,7 @@ jobs:
         run: |
           pip install "sagemaker>=2.200.0"
           pip install -r requirements.txt
+          pip install --upgrade "sagemaker>=2.200.0"
       - name: Lint with flake8
         run: flake8 src/
       - name: Run tests
@@ -27,7 +28,7 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: eu-north-1
       - name: Check sagemaker version
-        run: python -c "import sagemaker; print(sagemaker.__version__)"
+        run: pip show sagemaker
       - name: Run SageMaker pipeline
         run: python src/pipeline/pipeline.py
         env:
