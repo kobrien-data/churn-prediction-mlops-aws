@@ -14,9 +14,7 @@ jobs:
           python-version: '3.10'
       - name: Install dependencies
         run: |
-          pip install "sagemaker>=2.200.0"
           pip install -r requirements.txt
-          pip install --upgrade "sagemaker>=2.200.0"
       - name: Lint with flake8
         run: flake8 src/
       - name: Run tests
