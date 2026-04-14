@@ -24,6 +24,8 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: eu-north-1
+      - name: Check sagemaker version
+        run: python -c "import sagemaker; print(sagemaker.__version__)"
       - name: Run SageMaker pipeline
         run: python src/pipeline/pipeline.py
         env:
