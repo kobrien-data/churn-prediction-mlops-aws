@@ -7,7 +7,7 @@ matplotlib==3.10.8
 seaborn==0.13.2
 mlflow==3.10.1
 boto3==1.42.65
-sagemaker>=2.200.0
+sagemaker>=2.200.0,<3.0.0
 s3fs
 flake8
 pytest
