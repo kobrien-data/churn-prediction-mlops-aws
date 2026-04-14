@@ -1,0 +1,15 @@
+FROM python:3.10-slim
+
+RUN pip install --no-cache-dir \
+    numpy==2.2.6 \
+    scikit-learn==1.7.2 \
+    pandas==2.3.3 \
+    joblib==1.5.3 \
+    imbalanced-learn==0.14.1 \
+    flask \
+    gunicorn
+
+COPY src/inference/inference.py /opt/ml/code/inference.py
+COPY src/inference/serve.py /opt/ml/code/serve.py
+
+ENTRYPOINT ["gunicorn", "--bind", "0.0.0.0:8080", "--chdir", "/opt/ml/code", "serve:app"]
