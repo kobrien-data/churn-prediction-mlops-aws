@@ -7,6 +7,7 @@ MODEL_PACKAGE_GROUP = 'customer-churn-models'
 ENDPOINT_NAME = 'customer-churn-endpoint'
 INSTANCE_TYPE = 'ml.m5.xlarge'
 INFERENCE_IMAGE_URI = '941377133770.dkr.ecr.eu-north-1.amazonaws.com/customer-churn-inference:latest'
+DATA_CAPTURE_S3_URI = 's3://customer-churn-model-artifacts-941377133770/data-capture'
 
 role = os.environ['SAGEMAKER_ROLE_ARN']
 
@@ -58,6 +59,18 @@ def create_endpoint_config(config_name: str, model_name: str) -> None:
                 'InitialVariantWeight': 1.0,
             }
         ],
+        DataCaptureConfig={
+            'EnableCapture': True,
+            'InitialSamplingPercentage': 100,
+            'DestinationS3Uri': DATA_CAPTURE_S3_URI,
+            'CaptureOptions': [
+                {'CaptureMode': 'Input'},
+                {'CaptureMode': 'Output'},
+            ],
+            'CaptureContentTypeHeader': {
+                'JsonContentTypes': ['application/json'],
+            },
+        },
     )
     print(f'Created endpoint config: {config_name}')
 
