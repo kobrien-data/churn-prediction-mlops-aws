@@ -18,14 +18,16 @@ def drop_unnecessary_columns(df: pd.DataFrame, columns_to_drop: list[str]) -> pd
 
 def encode_categorical_variables(df: pd.DataFrame, categorical_columns: list[str]) -> pd.DataFrame:
     """Encode categorical variables using one-hot encoding."""
-    return pd.get_dummies(df, columns=categorical_columns)
+    encoded = pd.get_dummies(df, columns=categorical_columns)
+    bool_cols = encoded.select_dtypes('bool').columns
+    encoded[bool_cols] = encoded[bool_cols].astype(int)
+    return encoded
 
 
 def scale_numerics(df: pd.DataFrame) -> tuple[pd.DataFrame, StandardScaler]:
     numeric_cols = df.select_dtypes(include=['int64', 'float64']).columns.tolist()
-
-    if 'Exited' in numeric_cols:
-        numeric_cols.remove('Exited')
+    binary_cols = [c for c in numeric_cols if df[c].dropna().isin([0, 1]).all()]
+    numeric_cols = [c for c in numeric_cols if c not in binary_cols and c != 'Exited']
 
     scaler = StandardScaler()
     df[numeric_cols] = scaler.fit_transform(df[numeric_cols])

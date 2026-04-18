@@ -1,4 +1,52 @@
 # -----------------------------------------------------
+# IAM role — allows API Gateway to write to CloudWatch
+# -----------------------------------------------------
+
+data "aws_iam_policy_document" "apigw_assume_role" {
+  statement {
+    actions = ["sts:AssumeRole"]
+    principals {
+      type        = "Service"
+      identifiers = ["apigateway.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "apigw_cloudwatch" {
+  name               = "customer-churn-apigw-cloudwatch-role"
+  assume_role_policy = data.aws_iam_policy_document.apigw_assume_role.json
+
+  tags = {
+    Project   = "customer-churn-mlops"
+    ManagedBy = "terraform"
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "apigw_cloudwatch" {
+  role       = aws_iam_role.apigw_cloudwatch.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs"
+}
+
+# Associates the CloudWatch role with the API Gateway account (account-wide setting)
+resource "aws_api_gateway_account" "main" {
+  cloudwatch_role_arn = aws_iam_role.apigw_cloudwatch.arn
+}
+
+# -----------------------------------------------------
+# CloudWatch log group for access logs
+# -----------------------------------------------------
+
+resource "aws_cloudwatch_log_group" "apigw_access_logs" {
+  name              = "/aws/api-gateway/customer-churn-api/access-logs"
+  retention_in_days = 30
+
+  tags = {
+    Project   = "customer-churn-mlops"
+    ManagedBy = "terraform"
+  }
+}
+
+# -----------------------------------------------------
 # REST API
 # -----------------------------------------------------
 
@@ -97,9 +145,44 @@ resource "aws_api_gateway_stage" "prod" {
   deployment_id = aws_api_gateway_deployment.churn_api.id
   stage_name    = "prod"
 
+  # Access logging — captures every request/response for data capture
+  access_log_settings {
+    destination_arn = aws_cloudwatch_log_group.apigw_access_logs.arn
+    format = jsonencode({
+      requestId      = "$context.requestId"
+      requestTime    = "$context.requestTime"
+      httpMethod     = "$context.httpMethod"
+      resourcePath   = "$context.resourcePath"
+      status         = "$context.status"
+      responseLength = "$context.responseLength"
+      ip             = "$context.identity.sourceIp"
+      userAgent      = "$context.identity.userAgent"
+      integrationLatency = "$context.integration.latency"
+      responseLatency    = "$context.responseLatency"
+      errorMessage       = "$context.error.message"
+    })
+  }
+
+  depends_on = [aws_api_gateway_account.main]
+
   tags = {
     Project   = "customer-churn-mlops"
     ManagedBy = "terraform"
+  }
+}
+
+# Method-level settings — enables CloudWatch metrics and execution logging
+resource "aws_api_gateway_method_settings" "prod" {
+  rest_api_id = aws_api_gateway_rest_api.churn_api.id
+  stage_name  = aws_api_gateway_stage.prod.stage_name
+  method_path = "*/*"
+
+  settings {
+    metrics_enabled        = true
+    logging_level          = "INFO"
+    data_trace_enabled     = true
+    throttling_burst_limit = 100
+    throttling_rate_limit  = 50
   }
 }
 
