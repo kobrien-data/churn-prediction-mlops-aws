@@ -43,7 +43,7 @@ mlflow_tracking_uri = os.environ.get('MLFLOW_TRACKING_URI')
 
 session = PipelineSession(boto_session=boto3.Session(region_name=region))
 
-cache_config = CacheConfig(enable_caching=True, expire_after="7d")
+cache_config = CacheConfig(enable_caching=False)
 
 # Processing Step — runs preprocessing.py on raw data
 processing_processor = ScriptProcessor(

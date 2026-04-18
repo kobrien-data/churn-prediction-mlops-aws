@@ -19,12 +19,18 @@ resource "aws_cloudwatch_metric_alarm" "model_drift" {
   alarm_name          = "churn-model-drift-alarm"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = 1
-  metric_name         = "feature_baseline_drift"
-  namespace           = "/aws/sagemaker/Endpoints/data-metrics"
-  period              = 900
+  metric_name         = "feature_baseline_drift_Balance"
+  namespace           = "aws/sagemaker/Endpoints/data-metrics"
+  period              = 3600
   statistic           = "Average"
   threshold           = 0.5
   alarm_description   = "Triggers retraining when feature drift is detected"
+
+  dimensions = {
+    Endpoint           = "customer-churn-endpoint"
+    MonitoringSchedule = "customer-churn-monitor-schedule"
+    Feature            = "Balance"
+  }
 
   alarm_actions = [aws_sns_topic.retraining_trigger.arn]
 
