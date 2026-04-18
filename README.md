@@ -1,6 +1,6 @@
 # Churn Prediction MLOps on AWS
 
-An end-to-end MLOps pipeline for customer churn prediction, featuring automated data validation, preprocessing, multi-model training with hyperparameter tuning, experiment tracking via MLflow, and AWS cloud infrastructure managed with Terraform.
+An end-to-end MLOps pipeline for customer churn prediction, featuring automated data validation, preprocessing, multi-model training with hyperparameter tuning, experiment tracking via MLflow, SageMaker Pipelines orchestration, containerised inference via Lambda + API Gateway, and AWS infrastructure managed with Terraform.
 
 ## Table of Contents
 
@@ -11,7 +11,10 @@ An end-to-end MLOps pipeline for customer churn prediction, featuring automated 
 - [Setup](#setup)
 - [Usage](#usage)
 - [ML Pipeline](#ml-pipeline)
+- [Inference & Deployment](#inference--deployment)
+- [Model Monitoring](#model-monitoring)
 - [MLflow Tracking](#mlflow-tracking)
+- [CI/CD](#cicd)
 - [Data Version Control](#data-version-control)
 
 ---
@@ -23,8 +26,12 @@ This project builds a production-ready MLOps pipeline to predict customer churn 
 - **Data validation** — schema, null, and range checks
 - **Preprocessing** — encoding, scaling, and SMOTE oversampling
 - **Training** — Logistic Regression, Random Forest, and Gradient Boosting with GridSearchCV
-- **Experiment tracking** — MLflow hosted on an EC2 instance with S3 artifact storage
-- **Infrastructure as code** — Terraform provisions all AWS resources (EC2, S3, SageMaker, IAM, ECR)
+- **Evaluation** — metrics, plots, and threshold analysis logged to MLflow
+- **Experiment tracking** — MLflow hosted on EC2 with S3 artifact storage
+- **Pipeline orchestration** — SageMaker Pipelines with conditional model registration
+- **Inference** — SageMaker endpoint + Lambda function + API Gateway REST API
+- **Monitoring** — SageMaker Model Monitor for data drift and quality
+- **Infrastructure as code** — Terraform provisions all AWS resources
 
 **Dataset**: [Bank Customer Churn](https://www.kaggle.com/datasets/radheshyamkollipara/bank-customer-churn) — 10,000 customer records with 18 features, target variable `Exited` (1 = churned).
 
@@ -33,36 +40,49 @@ This project builds a production-ready MLOps pipeline to predict customer churn 
 ## Architecture
 
 ```
-Local Development / SageMaker Studio
-           |
-           v
-  [Data Validation] ──── src/data/data_validation.py
-           |
-           v
-  [Preprocessing] ─────── src/data/preprocessing.py
-    - Drop non-predictive columns
-    - One-hot encode categoricals
-    - StandardScaler normalization
-    - SMOTE oversampling
-    - 80/20 stratified split
-           |
-           v
-  [Model Training] ────── src/training/train.py
-    - Logistic Regression (GridSearchCV)
-    - Random Forest (GridSearchCV)
-    - Gradient Boosting (GridSearchCV)
-           |
-           v
-  [MLflow Tracking] ───── EC2 t3.micro (eu-north-1)
-    - Parameters, metrics, artifacts
-    - S3 artifact backend
-           |
-           v
-  [S3 Buckets]
-    - customer-churn-raw-data
-    - customer-churn-processed-data
-    - customer-churn-model-artifacts
+GitHub Push to main
+        |
+        v
+[GitHub Actions CI/CD]
+  - Lint (flake8)
+  - Test (pytest)
+  - Run SageMaker Pipeline
+        |
+        v
+[SageMaker Pipeline] ─── src/pipeline/pipeline.py
+        |
+        ├── Processing Step ─── src/data/preprocessing.py
+        │     Raw S3 data → train/test splits → Processed S3
+        │
+        ├── Training Step ──── src/training/train.py
+        │     Logistic Regression / Random Forest / Gradient Boosting
+        │     GridSearchCV → best model → MLflow logging → model.joblib
+        │
+        ├── Evaluation Step ─── src/evaluation/evaluate.py
+        │     Metrics, plots, classification report → MLflow artifacts
+        │
+        └── Condition Step (ROC AUC ≥ 0.75)
+              └── Register Step → SageMaker Model Registry
+                        |
+                        v
+              [Deployment] ─── src/deployment/deploy.py
+                  Latest approved model → SageMaker Endpoint
+                        |
+                  ┌─────┴─────┐
+                  │           │
+             [Lambda]   [Endpoint]
+          lambda_handler.py   inference.py / serve.py
+                  │
+                  v
+          [API Gateway REST]
+          POST /predict → JSON response
+                        |
+                        v
+              [Model Monitor] ─── src/monitoring/monitor.py
+                  Hourly drift & quality checks → S3 reports
 ```
+
+**MLflow Tracking Server**: EC2 t3.micro (eu-north-1), SQLite backend, S3 artifact store
 
 ---
 
@@ -70,6 +90,8 @@ Local Development / SageMaker Studio
 
 ```
 churn-prediction-mlops-aws/
+├── .github/workflows/
+│   └── customer-churn-action.yml   # CI/CD: lint → test → SageMaker pipeline
 ├── data/
 │   ├── raw/                        # Raw CSV (DVC-tracked)
 │   └── processed/                  # Train/test splits (generated)
@@ -77,25 +99,44 @@ churn-prediction-mlops-aws/
 │   └── 01_eda.ipynb                # Exploratory data analysis
 ├── src/
 │   ├── data/
-│   │   ├── preprocessing.py        # Data cleaning, encoding, SMOTE
-│   │   └── data_validation.py      # Schema, null, range validation
+│   │   ├── preprocessing.py        # Encoding, scaling, SMOTE, train/test split
+│   │   └── data_validation.py      # Schema, null, and range validation
 │   ├── training/
-│   │   └── train.py                # Multi-model training + MLflow logging
-│   ├── evaluation/                 # (planned)
-│   ├── monitoring/                 # (planned)
-│   └── pipeline/                   # (planned - SageMaker Pipelines)
+│   │   ├── train.py                # Multi-model training + MLflow logging
+│   │   └── launch_training_job.py  # Launch SageMaker training job via boto3
+│   ├── evaluation/
+│   │   └── evaluate.py             # Metrics, plots, threshold analysis, MLflow logging
+│   ├── inference/
+│   │   ├── inference.py            # SageMaker model_fn / input_fn / predict_fn / output_fn
+│   │   ├── serve.py                # Flask app served via gunicorn (port 8080)
+│   │   └── lambda_handler.py       # AWS Lambda handler → invokes SageMaker endpoint
+│   ├── deployment/
+│   │   └── deploy.py               # Deploy approved model from registry to endpoint
+│   ├── monitoring/
+│   │   ├── monitor.py              # SageMaker Model Monitor baseline + hourly schedule
+│   │   └── simulate-drift.py       # Send out-of-distribution data to test drift detection
+│   └── pipeline/
+│       └── pipeline.py             # SageMaker Pipelines definition (process → train → eval → register)
 ├── terraform/
 │   ├── main.tf                     # Provider config & S3 remote backend
-│   ├── variables.tf                # Region, IP address variables
+│   ├── variables.tf                # Region, IP, endpoint name
 │   ├── terraform.tfvars            # Variable values (gitignored)
-│   ├── aws-ec2.tf                  # MLflow tracking server
-│   ├── aws-s3.tf                   # Data and artifact buckets
-│   ├── aws-iam.tf                  # SageMaker execution role
+│   ├── aws-ec2.tf                  # MLflow tracking server (EC2 t3.micro)
+│   ├── aws-s3.tf                   # Raw, processed, artifacts, monitoring buckets
+│   ├── aws-iam.tf                  # SageMaker & EC2 IAM roles (least-privilege)
 │   ├── aws-sagemaker.tf            # SageMaker Studio domain
-│   └── aws-ecr.tf                  # Training & inference ECR repos
+│   ├── aws-ecr.tf                  # ECR repos: training, inference, lambda
+│   ├── lambda.tf                   # Lambda function (Python 3.12, 30s timeout)
+│   ├── api-gateway-rest.tf         # REST API: POST /predict → Lambda
+│   └── aws-monitoring.tf           # SageMaker Model Monitor configuration
 ├── tests/
-│   └── test_mlflow_logging.py      # MLflow connectivity smoke test
-└── README.md
+│   ├── test_mlflow_logging.py      # MLflow connectivity smoke test
+│   └── smoke_test.py               # API endpoint integration tests
+├── Dockerfile                      # Training image (entrypoint: train.py)
+├── Dockerfile.inference            # Inference image (gunicorn on port 8080)
+├── Dockerfile.lambda               # Lambda container image
+├── requirements.txt
+└── setup.cfg                       # Flake8: max-line-length 120
 ```
 
 ---
@@ -104,17 +145,22 @@ churn-prediction-mlops-aws/
 
 All infrastructure is defined in [terraform/](terraform/) and deployed to `eu-north-1`.
 
-| Resource | Type | Purpose |
+| Resource | File | Purpose |
 |---|---|---|
-| EC2 t3.micro | `aws-ec2.tf` | MLflow tracking server (port 5000) |
+| EC2 t3.micro | `aws-ec2.tf` | MLflow tracking server (port 5000), EIP for stable address |
 | S3 — raw data | `aws-s3.tf` | Raw CSV input, versioning enabled |
 | S3 — processed data | `aws-s3.tf` | Preprocessed train/test splits |
-| S3 — model artifacts | `aws-s3.tf` | MLflow artifact backend |
+| S3 — model artifacts | `aws-s3.tf` | MLflow artifacts, SageMaker model artifacts, data capture |
+| S3 — monitoring | `aws-s3.tf` | Model Monitor baseline and drift reports |
 | S3 — terraform state | `main.tf` | Remote Terraform state backend |
 | SageMaker Domain | `aws-sagemaker.tf` | Studio workspace (IAM auth) |
-| IAM Role | `aws-iam.tf` | Scoped SageMaker execution role |
+| IAM Roles | `aws-iam.tf` | Scoped SageMaker execution role + EC2 instance role |
 | ECR — training | `aws-ecr.tf` | Training job Docker images |
-| ECR — inference | `aws-ecr.tf` | Inference/endpoint Docker images |
+| ECR — inference | `aws-ecr.tf` | SageMaker endpoint Docker images |
+| ECR — lambda | `aws-ecr.tf` | Lambda container images |
+| Lambda | `lambda.tf` | `customer-churn-predict` function, Python 3.12, 30s timeout |
+| API Gateway | `api-gateway-rest.tf` | REST API: `POST /predict`, throttling 50 rps / 100 burst |
+| Model Monitor | `aws-monitoring.tf` | Hourly drift and quality monitoring schedule |
 
 ### Deploying Infrastructure
 
@@ -143,14 +189,13 @@ terraform apply
 - AWS CLI configured (`aws configure`)
 - Terraform >= 1.0
 - DVC (`pip install dvc[s3]`)
+- Docker (for building and pushing images to ECR)
 
 ### Install Python dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
-
-> Core dependencies: `scikit-learn`, `imbalanced-learn` (SMOTE), `mlflow`, `boto3`, `pandas`, `numpy`
 
 ### Pull raw data with DVC
 
@@ -168,7 +213,7 @@ dvc pull
 python -c "from src.data.data_validation import validate_churn_csv; validate_churn_csv('data/raw/Customer-Churn-Records.csv')"
 ```
 
-Runs three checks — schema, nulls, and value ranges — and prints a pass/fail report.
+Runs schema, null, and value range checks and prints a pass/fail report.
 
 ### 2. Preprocess data
 
@@ -180,25 +225,40 @@ python src/data/preprocessing.py \
 
 Outputs `X_train.csv`, `X_test.csv`, `y_train.csv`, `y_test.csv` to `data/processed/`.
 
-### 3. Train models
-
-```bash
-python src/training/train.py
-```
-
-Trains Logistic Regression, Random Forest, and Gradient Boosting with GridSearchCV. All runs are logged to MLflow under the experiment **"Churn Prediction Models"**.
-
-Set the MLflow tracking URI before running if using the EC2 server:
+### 3. Train models locally
 
 ```bash
 export MLFLOW_TRACKING_URI=http://<EC2_PUBLIC_IP>:5000
 python src/training/train.py
 ```
 
-### 4. Smoke test MLflow connection
+Trains all three models with GridSearchCV, selects the best by ROC AUC, logs to MLflow, and saves `model.joblib`.
+
+### 4. Run the full SageMaker Pipeline
 
 ```bash
-python tests/test_mlflow_logging.py
+export SAGEMAKER_ROLE_ARN=arn:aws:iam::<account>:role/...
+export TRAINING_IMAGE_URI=<account>.dkr.ecr.eu-north-1.amazonaws.com/customer-churn-training:latest
+export S3_RAW_DATA_BUCKET=customer-churn-raw-data-<account>
+export S3_PROCESSED_DATA_BUCKET=customer-churn-processed-data-<account>
+export S3_MODEL_ARTIFACTS_BUCKET=customer-churn-model-artifacts-<account>
+export MLFLOW_TRACKING_URI=http://<EC2_PUBLIC_IP>:5000
+
+python src/pipeline/pipeline.py
+```
+
+### 5. Deploy the latest approved model
+
+```bash
+python src/deployment/deploy.py
+```
+
+Fetches the most recently approved model from the SageMaker Model Registry and creates or updates the `customer-churn-endpoint`.
+
+### 6. Run smoke tests
+
+```bash
+pytest tests/
 ```
 
 ---
@@ -213,30 +273,118 @@ python tests/test_mlflow_logging.py
 | Random Forest | `n_estimators`: [50, 100, 200], `max_depth`: [None, 10, 20], `min_samples_split`: [2, 5, 10] |
 | Gradient Boosting | `n_estimators`: [50, 100, 200], `learning_rate`: [0.01, 0.1, 0.2], `max_depth`: [3, 5, 7] |
 
-All models use **ROC AUC** as the cross-validation scoring metric.
+All models use **ROC AUC** as the cross-validation scoring metric (5-fold). The best model across all three is saved as `model.joblib`.
 
 ### Preprocessing Steps
 
-1. Drop `RowNumber`, `CustomerId`, `Surname`
+1. Drop `RowNumber`, `CustomerId`, `Surname`, `Complain`
 2. One-hot encode `Geography`, `Gender`, `Card Type`
 3. `StandardScaler` on `CreditScore`, `Age`, `Tenure`, `Balance`, `EstimatedSalary`, `Point Earned`
-4. SMOTE on training set to address class imbalance (~20% churn rate)
-5. Stratified 80/20 train/test split (random state 42)
+4. Stratified 80/20 train/test split (random state 42)
+5. SMOTE applied to training set only to address class imbalance (~20% churn rate)
 
-### Metrics Logged
+### Evaluation
 
-- `accuracy`, `precision`, `recall`, `f1_score`, `roc_auc`
-- Full classification report and confusion matrix saved as MLflow artifacts
+The evaluation step computes and logs to MLflow:
+
+- Accuracy, Precision, Recall, F1, ROC AUC
+- Classification report and confusion matrix
+- ROC curve, Precision-Recall curve
+- Feature importance plot (tree-based models)
+- Threshold performance analysis (0.3–0.6)
+
+A model is only registered if ROC AUC ≥ 0.75 (enforced by the SageMaker Pipelines condition step).
+
+---
+
+## Inference & Deployment
+
+Three inference options are available:
+
+### SageMaker Endpoint
+
+The endpoint runs a Flask app ([serve.py](src/inference/serve.py)) via gunicorn on port 8080 using the inference image. [inference.py](src/inference/inference.py) implements the SageMaker `model_fn` / `input_fn` / `predict_fn` / `output_fn` interface.
+
+### Lambda + API Gateway
+
+Send predictions via the public REST API:
+
+```bash
+curl -X POST https://zovdxgkcg9.execute-api.eu-north-1.amazonaws.com/prod/predict \
+  -H "Content-Type: application/json" \
+  -d '{"CreditScore": 600, "Age": 40, ...}'
+```
+
+Response:
+
+```json
+{
+  "prediction": 1,
+  "churn": true,
+  "churn_probability": 0.83,
+  "confidence": 0.83
+}
+```
+
+The Lambda function ([lambda_handler.py](src/inference/lambda_handler.py)) invokes the SageMaker endpoint via `sagemaker-runtime`.
+
+### Building & Pushing Docker Images
+
+```bash
+# Training image
+docker build -t customer-churn-training -f Dockerfile .
+docker tag customer-churn-training <account>.dkr.ecr.eu-north-1.amazonaws.com/customer-churn-training:latest
+docker push <account>.dkr.ecr.eu-north-1.amazonaws.com/customer-churn-training:latest
+
+# Inference image
+docker build -t customer-churn-inference -f Dockerfile.inference .
+docker push <account>.dkr.ecr.eu-north-1.amazonaws.com/customer-churn-inference:latest
+
+# Lambda image
+docker build -t customer-churn-lambda -f Dockerfile.lambda .
+docker push <account>.dkr.ecr.eu-north-1.amazonaws.com/customer-churn-lambda:latest
+```
+
+---
+
+## Model Monitoring
+
+SageMaker Model Monitor runs on an hourly schedule to detect data drift and quality issues.
+
+```bash
+# Set up baseline and schedule
+python src/monitoring/monitor.py
+
+# Simulate drift to test detection
+python src/monitoring/simulate-drift.py
+```
+
+Monitoring results are written to `s3://customer-churn-monitoring-<account>/`.
 
 ---
 
 ## MLflow Tracking
 
 MLflow is hosted on an EC2 t3.micro instance with:
+
 - **Backend store**: SQLite at `/mlflow/mlflow.db`
-- **Artifact store**: `s3://customer-churn-model-artifacts-<account-id>/mlflow`
+- **Artifact store**: `s3://customer-churn-model-artifacts-<account>/mlflow`
 
 Access the UI at `http://<EC2_PUBLIC_IP>:5000` (IP-restricted to your machine).
+
+All training and evaluation runs are logged under the experiment **"Churn Prediction Models"**.
+
+---
+
+## CI/CD
+
+GitHub Actions ([.github/workflows/customer-churn-action.yml](.github/workflows/customer-churn-action.yml)) triggers on every push to `main`:
+
+1. **Lint** — `flake8 src/`
+2. **Test** — `pytest tests/`
+3. **Pipeline** — `python src/pipeline/pipeline.py` (runs the full SageMaker Pipeline)
+
+Required GitHub secrets: `SAGEMAKER_ROLE_ARN`, `TRAINING_IMAGE_URI`, `S3_RAW_DATA_BUCKET`, `S3_PROCESSED_DATA_BUCKET`, `S3_MODEL_ARTIFACTS_BUCKET`, `MLFLOW_TRACKING_URI`.
 
 ---
 
