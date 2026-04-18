@@ -42,3 +42,18 @@ module "s3_model_artifacts" {
     enabled = true
   }
 }
+
+module "s3_monitoring" {
+  source  = "terraform-aws-modules/s3-bucket/aws"
+  version = "~> 4.0"
+
+  bucket = "customer-churn-monitoring-941377133770"
+  force_destroy = true
+
+  control_object_ownership = true
+  object_ownership = "BucketOwnerEnforced"
+
+  versioning = {
+    enabled = true
+  }
+}

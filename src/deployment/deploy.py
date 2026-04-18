@@ -65,7 +65,6 @@ def create_endpoint_config(config_name: str, model_name: str) -> None:
             'DestinationS3Uri': DATA_CAPTURE_S3_URI,
             'CaptureOptions': [
                 {'CaptureMode': 'Input'},
-                {'CaptureMode': 'Output'},
             ],
             'CaptureContentTypeHeader': {
                 'JsonContentTypes': ['application/json'],
