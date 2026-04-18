@@ -30,13 +30,13 @@ def send_shifted_data(endpoint_name, num_requests=100):
             'Card Type_PLATINUM': 0,
             'Card Type_SILVER': 1,
         }
-        
+
         runtime.invoke_endpoint(
             EndpointName=endpoint_name,
             ContentType='application/json',
             Body=json.dumps(shifted_payload)
         )
-    
+
     print(f"Sent {num_requests} shifted requests to {endpoint_name}")
 
 send_shifted_data(os.environ['SAGEMAKER_ENDPOINT_NAME'])
