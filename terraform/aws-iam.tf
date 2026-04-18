@@ -55,6 +55,8 @@ data "aws_iam_policy_document" "sagemaker_s3" {
       "arn:aws:s3:::customer-churn-processed-data-941377133770/*",
       "arn:aws:s3:::customer-churn-model-artifacts-941377133770",
       "arn:aws:s3:::customer-churn-model-artifacts-941377133770/*",
+      "arn:aws:s3:::customer-churn-monitoring-941377133770",
+      "arn:aws:s3:::customer-churn-monitoring-941377133770/*",
       "arn:aws:s3:::sagemaker-eu-north-1-941377133770",
       "arn:aws:s3:::sagemaker-eu-north-1-941377133770/*",
     ]
@@ -224,6 +226,16 @@ data "aws_iam_policy_document" "sagemaker_pipelines" {
       "sagemaker:UpdateEndpoint",
       "sagemaker:DescribeEndpoint",
       "sagemaker:InvokeEndpoint",
+      "sagemaker:CreateMonitoringSchedule",
+      "sagemaker:UpdateMonitoringSchedule",
+      "sagemaker:DeleteMonitoringSchedule",
+      "sagemaker:DescribeMonitoringSchedule",
+      "sagemaker:ListMonitoringSchedules",
+      "sagemaker:ListMonitoringExecutions",
+      "sagemaker:DescribeMonitoringScheduleExecution",
+      "sagemaker:CreateDataQualityJobDefinition",
+      "sagemaker:DescribeDataQualityJobDefinition",
+      "sagemaker:DeleteDataQualityJobDefinition",
     ]
 
     resources = [
@@ -237,6 +249,8 @@ data "aws_iam_policy_document" "sagemaker_pipelines" {
       "arn:aws:sagemaker:*:*:model-package/customer-churn-*",
       "arn:aws:sagemaker:*:*:endpoint/customer-churn-*",
       "arn:aws:sagemaker:*:*:endpoint-config/customer-churn-*",
+      "arn:aws:sagemaker:*:*:monitoring-schedule/customer-churn-*",
+      "arn:aws:sagemaker:*:*:data-quality-job-definition/customer-churn-*",
     ]
   }
 }

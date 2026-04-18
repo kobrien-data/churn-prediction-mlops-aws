@@ -13,10 +13,12 @@ def handler(event, context):
     except json.JSONDecodeError:
         return {'statusCode': 400, 'body': json.dumps({'error': 'Invalid JSON body'})}
 
+    normalized = {k: int(v) if isinstance(v, bool) else v for k, v in body.items()}
+
     response = sagemaker_runtime.invoke_endpoint(
         EndpointName=ENDPOINT_NAME,
         ContentType='application/json',
-        Body=json.dumps(body)
+        Body=json.dumps(normalized)
     )
 
     result = json.loads(response['Body'].read())
