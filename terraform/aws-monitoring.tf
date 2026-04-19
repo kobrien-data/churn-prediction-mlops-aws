@@ -41,6 +41,16 @@ resource "aws_cloudwatch_metric_alarm" "model_drift" {
 }
 
 # -----------------------------------------------------
+# SNS Subscriptions — email alert + pipeline trigger
+# -----------------------------------------------------
+
+resource "aws_sns_topic_subscription" "email" {
+  topic_arn = aws_sns_topic.retraining_trigger.arn
+  protocol  = "email"
+  endpoint  = var.alert_email
+}
+
+# -----------------------------------------------------
 # IAM Role — allows EventBridge to trigger SageMaker
 # -----------------------------------------------------
 

@@ -14,3 +14,8 @@ variable "sagemaker_endpoint_name" {
   type        = string
   default     = "customer-churn-endpoint"
 }
+
+variable "alert_email" {
+  description = "Email address to notify when model drift is detected"
+  type        = string
+}
