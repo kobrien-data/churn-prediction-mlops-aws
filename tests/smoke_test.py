@@ -11,21 +11,21 @@ KNOWN_INPUT = {
     "Age": -0.08789693990845966,
     "Tenure": 1.03290776479748,
     "Balance": 0.4354184137433293,
-    "NumOfProducts": 0.8077365626180215,
-    "HasCrCard": 0.646091668153197,
-    "IsActiveMember": 0.9702425509371355,
+    "NumOfProducts": 1,
+    "HasCrCard": 1,
+    "IsActiveMember": 1,
     "EstimatedSalary": 0.6432125326414329,
     "Satisfaction Score": -0.009816137054176019,
     "Point Earned": 1.0467938184725165,
-    "Geography_France": False,
-    "Geography_Germany": True,
-    "Geography_Spain": False,
-    "Gender_Female": True,
-    "Gender_Male": False,
-    "Card Type_DIAMOND": False,
-    "Card Type_GOLD": False,
-    "Card Type_PLATINUM": False,
-    "Card Type_SILVER": True
+    "Geography_France": 0,
+    "Geography_Germany": 1,
+    "Geography_Spain": 0,
+    "Gender_Female": 1,
+    "Gender_Male": 0,
+    "Card Type_DIAMOND": 0,
+    "Card Type_GOLD": 0,
+    "Card Type_PLATINUM": 0,
+    "Card Type_SILVER": 1
 }
 
 
@@ -57,4 +57,4 @@ def test_known_input_prediction():
     body = response.json()
     assert body['prediction'] == 0
     assert body['churn'] is False
-    assert abs(body['churn_probability'] - 0.305) < 0.05
+    assert abs(body['churn_probability'] - 0.46) < 0.05
