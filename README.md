@@ -39,48 +39,7 @@ This project builds a production-ready MLOps pipeline to predict customer churn 
 
 ## Architecture
 
-```
-GitHub Push to main
-        |
-        v
-[GitHub Actions CI/CD]
-  - Lint (flake8)
-  - Test (pytest)
-  - Run SageMaker Pipeline
-        |
-        v
-[SageMaker Pipeline] ─── src/pipeline/pipeline.py
-        |
-        ├── Processing Step ─── src/data/preprocessing.py
-        │     Raw S3 data → train/test splits → Processed S3
-        │
-        ├── Training Step ──── src/training/train.py
-        │     Logistic Regression / Random Forest / Gradient Boosting
-        │     GridSearchCV → best model → MLflow logging → model.joblib
-        │
-        ├── Evaluation Step ─── src/evaluation/evaluate.py
-        │     Metrics, plots, classification report → MLflow artifacts
-        │
-        └── Condition Step (ROC AUC ≥ 0.75)
-              └── Register Step → SageMaker Model Registry
-                        |
-                        v
-              [Deployment] ─── src/deployment/deploy.py
-                  Latest approved model → SageMaker Endpoint
-                        |
-                  ┌─────┴─────┐
-                  │           │
-             [Lambda]   [Endpoint]
-          lambda_handler.py   inference.py / serve.py
-                  │
-                  v
-          [API Gateway REST]
-          POST /predict → JSON response
-                        |
-                        v
-              [Model Monitor] ─── src/monitoring/monitor.py
-                  Hourly drift & quality checks → S3 reports
-```
+![Architecture Diagram](assets/architecture_diagram_v2.png)
 
 **MLflow Tracking Server**: EC2 t3.micro (eu-north-1), SQLite backend, S3 artifact store
 
