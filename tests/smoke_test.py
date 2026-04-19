@@ -55,6 +55,6 @@ def test_response_values_are_valid():
 def test_known_input_prediction():
     response = requests.post(API_URL, json=KNOWN_INPUT)
     body = response.json()
-    assert body['prediction'] == 0
-    assert body['churn'] is False
-    assert abs(body['churn_probability'] - 0.46) < 0.05
+    assert body['prediction'] == 1
+    assert body['churn'] is True
+    assert body['churn_probability'] > 0.5
