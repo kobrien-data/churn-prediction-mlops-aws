@@ -13,7 +13,10 @@ def input_fn(request_body, content_type):
     if content_type != 'application/json':
         raise ValueError(f'Unsupported content type: {content_type}')
     data = json.loads(request_body)
-    return pd.DataFrame([data])
+    df = pd.DataFrame([data])
+    int_cols = [c for c in ['HasCrCard', 'IsActiveMember'] if c in df.columns]
+    df[int_cols] = df[int_cols].astype(int)
+    return df
 
 
 def predict_fn(input_data, model):
