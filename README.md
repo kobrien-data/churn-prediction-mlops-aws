@@ -122,7 +122,25 @@ All infrastructure is defined in [terraform/](terraform/) and deployed to `eu-no
 | Model Monitor | `aws-monitoring.tf` | Hourly drift and quality monitoring schedule |
 
 ### Deploying Infrastructure
+First, create the bucket for Terraform state storage using these commands:
+```bash
+# Create the state bucket
+aws s3api create-bucket \
+  --bucket customer-churn-terraform-state \
+  --region <YOUR-REGION-HERE> \
+  --create-bucket-configuration LocationConstraint=<YOUR-REGION-HERE>
 
+# Enable versioning (recommended for state buckets)
+aws s3api put-bucket-versioning \
+  --bucket customer-churn-terraform-state \
+  --versioning-configuration Status=Enabled
+
+# Enable encryption
+aws s3api put-bucket-encryption \
+  --bucket customer-churn-terraform-state \
+  --server-side-encryption-configuration '{"Rules":[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"AES256"}}]}'
+
+```
 ```bash
 cd terraform
 
@@ -162,6 +180,59 @@ pip install -r requirements.txt
 dvc pull
 ```
 
+### Build Docker training image and push to ECR
+```bash
+# Authenticate Docker to ECR
+aws ecr get-login-password --region <YOUR_REGION_HERE> | \
+  docker login --username AWS --password-stdin <YOUR_ACCOUNT_HERE>
+
+# Build the training image
+docker build --platform linux/amd64 --no-cache -t customer-churn-training:latest .
+
+# Tag and push
+docker tag customer-churn-training:latest \
+  <TAG>
+
+docker push <IMAGE>
+/customer-churn-training:latest
+
+```
+
+### Build Docker inference image and push to ECR
+```bash
+# Authenticate Docker to ECR
+aws ecr get-login-password --region <YOUR_REGION_HERE> | \
+  docker login --username AWS --password-stdin <YOUR_ACCOUNT_HERE>
+
+# Build the training image
+docker build --platform linux/amd64 --no-cache -t customer-churn-training:latest .
+
+# Tag and push
+docker tag customer-churn-training:latest \
+  <TAG>
+
+docker push <IMAGE>
+/customer-churn-training:latest
+
+```
+
+### Build Docker lambda image and push to ECR
+```bash
+# Authenticate Docker to ECR
+aws ecr get-login-password --region <YOUR_REGION_HERE> | \
+  docker login --username AWS --password-stdin <YOUR_ACCOUNT_HERE>
+
+# Build the training image
+docker build --platform linux/amd64 --no-cache -f Dockerfile.inference -t customer-churn-inference:latest .
+
+# Tag and push
+docker tag customer-churn-inference:latest \
+  <TAG>
+
+docker push <IMAGE>
+/customer-churn-inference:latest
+
+```
 ---
 
 ## Usage
@@ -220,6 +291,11 @@ Fetches the most recently approved model from the SageMaker Model Registry and c
 pytest tests/
 ```
 
+### 7. Test endpoint
+```bash
+cd terraform // terraform output api_gateway_invoke_url
+```
+Use a tool like POSTMAN to connect to the endpoint
 ---
 
 ## ML Pipeline
