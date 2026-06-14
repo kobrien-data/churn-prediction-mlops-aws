@@ -122,39 +122,58 @@ All infrastructure is defined in [terraform/](terraform/) and deployed to `eu-no
 | Model Monitor | `aws-monitoring.tf` | Hourly drift and quality monitoring schedule |
 
 ### Deploying Infrastructure
-First, create the bucket for Terraform state storage using these commands:
-```bash
-# Create the state bucket
-aws s3api create-bucket \
-  --bucket customer-churn-terraform-state \
-  --region <YOUR-REGION-HERE> \
-  --create-bucket-configuration LocationConstraint=<YOUR-REGION-HERE>
 
-# Enable versioning (recommended for state buckets)
+The Terraform backend uses S3 for remote state. Create the state bucket before running `terraform init` (it must exist first and is not managed by Terraform itself):
+
+```bash
+# Replace <YOUR_ACCOUNT_ID> with your 12-digit AWS account ID
+aws s3api create-bucket \
+  --bucket customer-churn-terraform-state-<YOUR_ACCOUNT_ID> \
+  --region eu-north-1 \
+  --create-bucket-configuration LocationConstraint=eu-north-1
+
 aws s3api put-bucket-versioning \
-  --bucket customer-churn-terraform-state \
+  --bucket customer-churn-terraform-state-<YOUR_ACCOUNT_ID> \
   --versioning-configuration Status=Enabled
 
-# Enable encryption
 aws s3api put-bucket-encryption \
-  --bucket customer-churn-terraform-state \
+  --bucket customer-churn-terraform-state-<YOUR_ACCOUNT_ID> \
   --server-side-encryption-configuration '{"Rules":[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"AES256"}}]}'
+```
+
+The backend is configured via `terraform/backend.hcl` (so the bucket name stays out of `main.tf`). Update it with your account ID before initialising:
 
 ```
+# terraform/backend.hcl
+bucket = "customer-churn-terraform-state-<YOUR_ACCOUNT_ID>"
+key    = "churn-project/terraform.tfstate"
+region = "eu-north-1"
+```
+
+Create `terraform/terraform.tfvars` with your values:
+
+```hcl
+aws_region    = "eu-north-1"
+local_ip_addr = "<YOUR_PUBLIC_IP>"  # restricts SSH and MLflow port 5000 to your machine
+```
+
+Then initialise and apply:
+
 ```bash
 cd terraform
 
-# Initialise (downloads providers, configures S3 backend)
-terraform init
-
-# Preview changes
+terraform init -backend-config=backend.hcl
 terraform plan
-
-# Apply
 terraform apply
 ```
 
-> **Note**: `terraform.tfvars` sets `aws_region = "eu-north-1"` and `local_ip_addr` to your public IP. The EC2 security group restricts MLflow (port 5000) and SSH (port 22) to this IP only.
+Once applied, get the MLflow tracking server IP:
+
+```bash
+terraform output mlflow_public_ip
+```
+
+MLflow starts automatically on the EC2 instance. The UI is available at `http://<mlflow_public_ip>:5000` within a minute or two of the instance booting.
 
 ---
 
@@ -176,62 +195,48 @@ pip install -r requirements.txt
 
 ### Pull raw data with DVC
 
+The DVC remote must point to your S3 raw data bucket. Configure it once after cloning:
+
 ```bash
+dvc remote add -d s3remote s3://customer-churn-raw-data-<YOUR_ACCOUNT_ID>
 dvc pull
 ```
 
-### Build Docker training image and push to ECR
+### Build and push Docker images to ECR
+
+All three images must be in ECR before running the pipeline or deploying the endpoint. Authenticate Docker to ECR once per session:
+
 ```bash
-# Authenticate Docker to ECR
-aws ecr get-login-password --region <YOUR_REGION_HERE> | \
-  docker login --username AWS --password-stdin <YOUR_ACCOUNT_HERE>
-
-# Build the training image
-docker build --platform linux/amd64 --no-cache -t customer-churn-training:latest .
-
-# Tag and push
-docker tag customer-churn-training:latest \
-  <TAG>
-
-docker push <IMAGE>
-/customer-churn-training:latest
-
+aws ecr get-login-password --region eu-north-1 | \
+  docker login --username AWS --password-stdin <YOUR_ACCOUNT_ID>.dkr.ecr.eu-north-1.amazonaws.com
 ```
 
-### Build Docker inference image and push to ECR
+> **Apple Silicon (M-series) note**: Docker Desktop on Apple Silicon can push OCI-format manifests by default, which SageMaker does not support. If you hit an `Unsupported manifest media type` error, disable **Use containerd for pulling and storing images** in Docker Desktop → Settings → General, then restart Docker Desktop and rebuild.
+
+**Training image**
 ```bash
-# Authenticate Docker to ECR
-aws ecr get-login-password --region <YOUR_REGION_HERE> | \
-  docker login --username AWS --password-stdin <YOUR_ACCOUNT_HERE>
+docker build --platform linux/amd64 --no-cache \
+  -t <YOUR_ACCOUNT_ID>.dkr.ecr.eu-north-1.amazonaws.com/customer-churn-training:latest .
 
-# Build the training image
-docker build --platform linux/amd64 --no-cache -t customer-churn-training:latest .
-
-# Tag and push
-docker tag customer-churn-training:latest \
-  <TAG>
-
-docker push <IMAGE>
-/customer-churn-training:latest
-
+docker push <YOUR_ACCOUNT_ID>.dkr.ecr.eu-north-1.amazonaws.com/customer-churn-training:latest
 ```
 
-### Build Docker lambda image and push to ECR
+**Inference image**
 ```bash
-# Authenticate Docker to ECR
-aws ecr get-login-password --region <YOUR_REGION_HERE> | \
-  docker login --username AWS --password-stdin <YOUR_ACCOUNT_HERE>
+docker build --platform linux/amd64 --no-cache \
+  -f Dockerfile.inference \
+  -t <YOUR_ACCOUNT_ID>.dkr.ecr.eu-north-1.amazonaws.com/customer-churn-inference:latest .
 
-# Build the training image
-docker build --platform linux/amd64 --no-cache -f Dockerfile.inference -t customer-churn-inference:latest .
+docker push <YOUR_ACCOUNT_ID>.dkr.ecr.eu-north-1.amazonaws.com/customer-churn-inference:latest
+```
 
-# Tag and push
-docker tag customer-churn-inference:latest \
-  <TAG>
+**Lambda image**
+```bash
+docker build --platform linux/amd64 --no-cache \
+  -f Dockerfile.lambda \
+  -t <YOUR_ACCOUNT_ID>.dkr.ecr.eu-north-1.amazonaws.com/customer-churn-lambda:latest .
 
-docker push <IMAGE>
-/customer-churn-inference:latest
-
+docker push <YOUR_ACCOUNT_ID>.dkr.ecr.eu-north-1.amazonaws.com/customer-churn-lambda:latest
 ```
 ---
 
@@ -259,7 +264,10 @@ Outputs `X_train.csv`, `X_test.csv`, `y_train.csv`, `y_test.csv` to `data/proces
 
 ```bash
 export MLFLOW_TRACKING_URI=http://<EC2_PUBLIC_IP>:5000
-python src/training/train.py
+python src/training/train.py \
+  --train data/processed/train \
+  --test data/processed/test \
+  --model-dir models/
 ```
 
 Trains all three models with GridSearchCV, selects the best by ROC AUC, logs to MLflow, and saves `model.joblib`.
@@ -279,7 +287,10 @@ python src/pipeline/pipeline.py
 
 ### 5. Deploy the latest approved model
 
+Requires `SAGEMAKER_ROLE_ARN` to be set and the inference image to already be in ECR (see [Build and push Docker images](#build-and-push-docker-images-to-ecr)).
+
 ```bash
+export SAGEMAKER_ROLE_ARN=arn:aws:iam::<YOUR_ACCOUNT_ID>:role/customer-churn-sagemaker-execution-role
 python src/deployment/deploy.py
 ```
 
@@ -292,10 +303,14 @@ pytest tests/
 ```
 
 ### 7. Test endpoint
+
+Get the API URL from Terraform:
+
 ```bash
-cd terraform // terraform output api_gateway_invoke_url
+cd terraform && terraform output api_gateway_invoke_url
 ```
-Use a tool like POSTMAN to connect to the endpoint
+
+Use the returned URL as a `POST` endpoint in Postman or curl (see [Lambda + API Gateway](#lambda--api-gateway) for the request body format).
 ---
 
 ## ML Pipeline
@@ -345,7 +360,8 @@ The endpoint runs a Flask app ([serve.py](src/inference/serve.py)) via gunicorn 
 Send predictions via the public REST API:
 
 ```bash
-curl -X POST https://zovdxgkcg9.execute-api.eu-north-1.amazonaws.com/prod/predict \
+# Get the URL from: cd terraform && terraform output api_gateway_invoke_url
+curl -X POST https://<API_ID>.execute-api.eu-north-1.amazonaws.com/prod/predict \
   -H "Content-Type: application/json" \
   -d '{"CreditScore": 600, "Age": 40, ...}'
 ```
@@ -365,20 +381,7 @@ The Lambda function ([lambda_handler.py](src/inference/lambda_handler.py)) invok
 
 ### Building & Pushing Docker Images
 
-```bash
-# Training image
-docker build -t customer-churn-training -f Dockerfile .
-docker tag customer-churn-training <account>.dkr.ecr.eu-north-1.amazonaws.com/customer-churn-training:latest
-docker push <account>.dkr.ecr.eu-north-1.amazonaws.com/customer-churn-training:latest
-
-# Inference image
-docker build -t customer-churn-inference -f Dockerfile.inference .
-docker push <account>.dkr.ecr.eu-north-1.amazonaws.com/customer-churn-inference:latest
-
-# Lambda image
-docker build -t customer-churn-lambda -f Dockerfile.lambda .
-docker push <account>.dkr.ecr.eu-north-1.amazonaws.com/customer-churn-lambda:latest
-```
+See [Build and push Docker images](#build-and-push-docker-images-to-ecr) in the Setup section for full instructions including the Apple Silicon note.
 
 ---
 

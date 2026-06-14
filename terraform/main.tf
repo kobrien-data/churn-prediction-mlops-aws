@@ -8,11 +8,7 @@ terraform {
     }
   }
 
-  backend "s3" {
-    bucket = "customer-churn-terraform-state-941377133770"
-    key    = "churn-project/terraform.tfstate"
-    region = "eu-north-1"
-  }
+  backend "s3" {}
 }
 
 provider "aws" {
