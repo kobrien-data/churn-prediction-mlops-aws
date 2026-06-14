@@ -311,6 +311,7 @@ cd terraform && terraform output api_gateway_invoke_url
 ```
 
 Use the returned URL as a `POST` endpoint in Postman or curl (see [Lambda + API Gateway](#lambda--api-gateway) for the request body format).
+
 ---
 
 ## ML Pipeline
