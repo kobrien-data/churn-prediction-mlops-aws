@@ -1,6 +1,7 @@
 import os
 import re
 import boto3
+from botocore.exceptions import ClientError
 from datetime import datetime, timezone
 from sagemaker.workflow.pipeline_context import PipelineSession
 from sagemaker.workflow.pipeline import Pipeline
@@ -213,7 +214,24 @@ pipeline = Pipeline(
     sagemaker_session=session
 )
 
+def _ensure_raw_data_in_s3(bucket: str, key: str, local_path: str) -> None:
+    """Upload raw data to S3 if it doesn't already exist."""
+    s3 = boto3.client('s3', region_name=region)
+    try:
+        s3.head_object(Bucket=bucket, Key=key)
+        print(f'Raw data already exists in s3://{bucket}/{key}')
+    except ClientError:
+        print(f'Uploading {local_path} to s3://{bucket}/{key}...')
+        s3.upload_file(local_path, bucket, key)
+        print('Upload complete.')
+
+
 if __name__ == '__main__':
+    _ensure_raw_data_in_s3(
+        bucket=raw_data_bucket,
+        key='Customer-Churn-Records.csv',
+        local_path='data/raw/Customer-Churn-Records.csv'
+    )
     pipeline.upsert(role_arn=role)
     execution = pipeline.start()
     print(f'Pipeline started: {execution.arn}')
