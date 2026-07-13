@@ -39,7 +39,7 @@ This project builds a production-ready MLOps pipeline to predict customer churn 
 
 ## Architecture
 
-![Architecture Diagram](assets/architecture_diagram_v2.png)
+![Architecture Diagram](assets/churn-architecture.png)
 
 **MLflow Tracking Server**: EC2 t3.micro (eu-north-1), SQLite backend, S3 artifact store
 
